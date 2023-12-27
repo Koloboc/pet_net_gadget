@@ -11,7 +11,6 @@
 #include "defines.h"
 #include "sock.h"
 
-int port_listen = PORT_LISTEN;
 
 int Listen()
 {

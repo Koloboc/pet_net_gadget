@@ -1,5 +1,5 @@
-#ifndef __SOCKERR_H__
-#define __SOCKERR_H__
+#ifndef __SOCK_H__
+#define __SOCK_H__
 
 
 int sock;

@@ -14,8 +14,6 @@
 #include "defines.h"
 #include "sock.h"
 
-extern int port_listen;
-
 void die(){
 	printf("Exited!\n");
 	exit(EXIT_FAILURE);
@@ -24,6 +22,8 @@ void die(){
 int main(int argc, char **argv){
 	if(argc > 1){ 
 		port_listen = atoi(argv[1]);
+	}else{
+		port_listen = PORT_LISTEN;
 	}
 	struct timeval tv;
 	int fdmax = 0;
