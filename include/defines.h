@@ -5,6 +5,8 @@
 #define BROADCAST "127.255.255.255"
 #define QUEUE_LISTEN 10
 
+#define TIME_UNIT_WAITE 15
+
 #undef max
 #define max(x,y) ((x)>(y)?(x):(y))
 

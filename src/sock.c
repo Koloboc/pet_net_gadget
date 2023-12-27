@@ -11,6 +11,8 @@
 #include "defines.h"
 #include "sock.h"
 
+int port_listen = PORT_LISTEN;
+
 int Listen()
 {
 	struct sockaddr_in addr;
@@ -24,11 +26,11 @@ int Listen()
 		exit(EXIT_FAILURE);
 	}
 
-	if((listen(sock, QUEUE_LISTEN)) == -1){
-		close(sock);
-		perror("listen failure");
-		exit(EXIT_FAILURE);
-	}
+	//if((listen(sock, QUEUE_LISTEN)) == -1){
+		//close(sock);
+		//perror("listen failure");
+		//exit(EXIT_FAILURE);
+	//}
     return 0;
 }
 
@@ -54,7 +56,7 @@ int Socket(){
 		return 1;
 	}
 
-	//Listen();
+	Listen();
 
 	return 0;
 }
@@ -65,13 +67,13 @@ int send_broadcast(int socket, message *msg, size_t len){
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(PORT_LISTEN);
 	addr.sin_addr.s_addr = inet_addr(BROADCAST);
-	int lenaddr = sizeof(addr);
 
-	if((send_bytes = sendto(socket, msg, len, 0, (struct sockaddr*)&addr, lenaddr)) == -1)
+	if((send_bytes = sendto(socket, msg, len, 0, (struct sockaddr*)&addr, sizeof(addr))) == -1)
 	{
 		perror("unit %d sendto:");
 		return 0;
 	}
+	printf("unit %d send data\n", msg->id);
 
 	return 1;
 
