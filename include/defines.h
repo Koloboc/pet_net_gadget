@@ -1,8 +1,6 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
-#define PORT_LISTEN 8888
-int port_listen;
 #define BROADCAST "127.255.255.255"
 #define QUEUE_LISTEN 10
 
@@ -29,6 +27,5 @@ typedef struct _message{
 	data_sensor ds;
 }message;
 
-int myid;
 
 #endif

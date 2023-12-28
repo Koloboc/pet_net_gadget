@@ -14,17 +14,30 @@
 #include "defines.h"
 #include "sock.h"
 
+int myid;
+int port_listen;
+int sock;
+char *lip;
+
 void die(){
 	printf("Exited!\n");
 	exit(EXIT_FAILURE);
 }
 
+void usage(const char *prog){
+	printf("Usage: %s <listen ip> <listen port>\n", prog);
+	return;
+}
+
 int main(int argc, char **argv){
-	if(argc > 1){ 
-		port_listen = atoi(argv[1]);
-	}else{
-		port_listen = PORT_LISTEN;
+	if(argc < 3){
+		usage(argv[0]);
+		exit(EXIT_SUCCESS);
 	}
+
+	lip = argv[1];
+	port_listen = atoi(argv[2]);
+
 	struct timeval tv;
 	int fdmax = 0;
 	message msg, reciv_msg;
@@ -72,7 +85,7 @@ int main(int argc, char **argv){
 			if (FD_ISSET(i, &fds_r) && (i == sock)){
 				int read_bs = recvfrom(i, &reciv_msg, sizeof(reciv_msg), 0, NULL, NULL);
 				if((read_bs > 0) && (read_bs == sizeof(reciv_msg))) {
-					
+
 					printf("unit %d: recive id=%d num=%d\n", myid, reciv_msg.id, reciv_msg.nom);
 				}else{
 					printf("unit %d: error recive broadcast\n", myid);

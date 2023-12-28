@@ -11,13 +11,17 @@
 #include "defines.h"
 #include "sock.h"
 
+extern int sock;
+extern int port_listen;
+extern char* lip;
 
 int Listen()
 {
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
-	addr.sin_port = htons(PORT_LISTEN);
+	addr.sin_port = htons(port_listen);
 	addr.sin_family = AF_INET;
+	inet_aton(lip, &addr.sin_addr.s_addr);
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){
 		close(sock);
@@ -25,17 +29,11 @@ int Listen()
 		exit(EXIT_FAILURE);
 	}
 
-	//if((listen(sock, QUEUE_LISTEN)) == -1){
-		//close(sock);
-		//perror("listen failure");
-		//exit(EXIT_FAILURE);
-	//}
     return 0;
 }
 
 int Socket(){
 	int yes = 1;
-
 
 	sock = socket(AF_INET, SOCK_DGRAM, getprotobyname("udp")->p_proto);
 	if(sock == -1) {
@@ -64,7 +62,7 @@ int send_broadcast(int socket, message *msg, size_t len){
 	int send_bytes;
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(PORT_LISTEN);
+	addr.sin_port = htons(port_listen);
 	addr.sin_addr.s_addr = inet_addr(BROADCAST);
 
 	if((send_bytes = sendto(socket, msg, len, 0, (struct sockaddr*)&addr, sizeof(addr))) == -1)
