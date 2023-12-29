@@ -13,7 +13,7 @@
 #define IMREADY 0
 #define MASTER  IMREADY + 1
 #define TIMEOUT IMREADY + 2
-//#define GIVE_ME_DATA 0
+#define MYDATA	IMREADY + 1
 //#define SEND_DATA 1
 //#define SETVAL 3
 //#define YOU_BIG_ID 4
