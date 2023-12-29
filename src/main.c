@@ -14,10 +14,11 @@
 #include "defines.h"
 #include "sock.h"
 
-int myid;
-int port_listen;
-int sock;
-char *lip;
+int myid; 		// Ижентификатор гаджета (задается случайно)
+char *lip;		// Listen IP адрес
+int port_listen;// порт прослушивания
+int sock;		// основной сокет
+int master;		// Истинный Master or not
 
 void die(){
 	printf("Exited!\n");
@@ -25,18 +26,26 @@ void die(){
 }
 
 void usage(const char *prog){
-	printf("Usage: %s <listen ip> <listen port>\n", prog);
+	printf("Usage: %s <listen port>\n", prog);
+	//printf("Usage: %s <listen ip> <listen port>\n", prog);
 	return;
 }
 
+void proc(message *req, message *res){
+	if(res->id_req == req->id_req){
+		printf("%d: Пришли данные от %d\n", myid, res->id);
+		return;
+	}
+}
+
 int main(int argc, char **argv){
-	if(argc < 3){
+	if(argc < 2){
 		usage(argv[0]);
 		exit(EXIT_SUCCESS);
 	}
 
-	lip = argv[1];
-	port_listen = atoi(argv[2]);
+	//lip = argv[1];
+	port_listen = atoi(argv[1]);
 
 	struct timeval tv;
 	int fdmax = 0;
@@ -54,7 +63,8 @@ int main(int argc, char **argv){
 
 	FD_SET(sock, &fds_all);
 	fdmax = max(fdmax, sock);
-	msg.nom = 0;
+	msg.id_req = 0;
+	msg.id_res = 0;
 	msg.id = myid;
 	msg.type = IMREADY;
 	msg.ds.temp = 100;
@@ -73,20 +83,21 @@ int main(int argc, char **argv){
 			break;
 		}else if(sel == 0){ // time is gone
 			printf("unit %d: time is gone!\n", myid);
-			msg.nom++;
+			msg.id_req++;
+			msg.id_res = 0;
 			msg.id = myid;
-			msg.type = IMREADY;
+			msg.type = TIMEOUT;
 			send_broadcast(sock, &msg, sizeof(msg));
 			continue;
 		}
-		// Пришли даееые
+		// Пришли данные
 		memset(&reciv_msg, 0, sizeof(reciv_msg));
 		for(int i = 0; i <= fdmax; i++){
 			if (FD_ISSET(i, &fds_r) && (i == sock)){
 				int read_bs = recvfrom(i, &reciv_msg, sizeof(reciv_msg), 0, NULL, NULL);
 				if((read_bs > 0) && (read_bs == sizeof(reciv_msg))) {
-
-					printf("unit %d: recive id=%d num=%d\n", myid, reciv_msg.id, reciv_msg.nom);
+					printf("unit %d: recive id=%d req=%d res=%d\n", myid, reciv_msg.id, reciv_msg.id_req, reciv_msg.id_res);
+					//proc(&msg, &reciv_msg);
 				}else{
 					printf("unit %d: error recive broadcast\n", myid);
 				}

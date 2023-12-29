@@ -21,7 +21,7 @@ int Listen()
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_port = htons(port_listen);
 	addr.sin_family = AF_INET;
-	inet_aton(lip, &addr.sin_addr.s_addr);
+	//inet_aton(lip, &addr.sin_addr.s_addr);
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){
 		close(sock);
@@ -70,7 +70,7 @@ int send_broadcast(int socket, message *msg, size_t len){
 		perror("unit %d sendto:");
 		return 0;
 	}
-	printf("unit %d send data\n", msg->id);
+	printf("unit %d send broadcast\n", msg->id);
 
 	return 1;
 

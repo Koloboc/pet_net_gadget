@@ -1,15 +1,18 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
-#define BROADCAST "127.255.255.255"
+#define BROADCAST "192.168.0.255"
+//#define BROADCAST "127.255.255.255"
 #define QUEUE_LISTEN 10
 
-#define TIME_UNIT_WAITE 15
+#define TIME_UNIT_WAITE 7
 
 #undef max
 #define max(x,y) ((x)>(y)?(x):(y))
 
 #define IMREADY 0
+#define MASTER  IMREADY + 1
+#define TIMEOUT IMREADY + 2
 //#define GIVE_ME_DATA 0
 //#define SEND_DATA 1
 //#define SETVAL 3
@@ -21,7 +24,8 @@ typedef struct _data_sensor{
 }data_sensor;
 
 typedef struct _message{
-	int nom;
+	int id_req;
+	int id_res;
 	int id;
 	int type;
 	data_sensor ds;
