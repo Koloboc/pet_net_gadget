@@ -11,10 +11,10 @@
 #define max(x,y) ((x)>(y)?(x):(y))
 
 #define IMREADY 0
-#define MASTER  IMREADY + 1
 #define TIMEOUT IMREADY + 2
-#define MYDATA	IMREADY + 1
-//#define SEND_DATA 1
+#define MYDATA	IMREADY + 3
+#define CHANGEID IMREADY + 4
+#define SETDISPLAY IMREADY + 5
 //#define SETVAL 3
 //#define YOU_BIG_ID 4
 

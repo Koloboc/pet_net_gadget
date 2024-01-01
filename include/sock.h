@@ -3,7 +3,7 @@
 
 
 int Socket();
-int send_broadcast(int socket, message *msg, size_t len);
-int send_msg(int idreq, message *msg, struct sockaddr_in *sa);
+int send_broadcast(message *msg, size_t len);
+int send_msg(message *msg, struct sockaddr_in *sa);
 
 #endif

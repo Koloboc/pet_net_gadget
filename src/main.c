@@ -30,46 +30,48 @@ void die(){
 }
 
 void usage(const char *prog){
-	printf("Usage: %s <listen port>\n", prog);
+	printf("Usage: %s <listen ip address> <listen port>\n", prog);
 	//printf("Usage: %s <listen ip> <listen port>\n", prog);
 	return;
 }
 
-void proc(message *req, message *res, struct sockaddr_in *sf, socklen_t len_addr_from){
+void proc(message *request, message *in_msg, struct sockaddr_in *sf){
 	message msg;
-	if(res->id != myid){
-		printf("%d: Пришли данные от %d\n", myid, res->id);
-		printf("\trecive id=%d req=%d res=%d type=%d\n", res->id, res->id_req, res->id_res, res->type);
-		if(res->id < myid){
-			msg.id = myid;
-			msg.id_req = 0;
-			msg.id_res = res->id_req;
-			msg.type = MYDATA;
-			msg.ds.brithness = 11;
-			msg.ds.temp = 20;
-
-			send_msg(res->id_req, &msg, sf);
-		}else if(res->type == MYDATA){
-			printf("\t\tDATA id=%d br=%d t=%d\n", res->id, res->ds.brithness, res->ds.temp);
-		}
+	printf("%d: Пришли данные от %d\n", myid, in_msg->id);
+	printf("\t%d recive req=%d res=%d type=%d\n", in_msg->id, in_msg->id_req, in_msg->id_res, in_msg->type);
+	if(in_msg->type == TIMEOUT){
+		msg.id = myid;
+		msg.id_req = 0;
+		msg.id_res = in_msg->id_req;
+		msg.type = MYDATA;
+		msg.ds.brithness = (rand() % 100) + 1;
+		msg.ds.temp = (rand() % 1000) + 1;;
+		printf("\t%d отправка данных %d brithness=%d temp=%d\n",myid, in_msg->id, msg.ds.brithness, msg.ds.temp);
+		send_msg(&msg, sf);
+	//}else if(in_msg->type == SETDISPLAY){
+		printf("\t%d SET DISPLAY brithness=%d temp=%d\n",myid, in_msg->ds.brithness, in_msg->ds.temp);
 	}
 	return;
 }
 
 int main(int argc, char **argv){
 
-	//lip = argv[1];
-	port_listen = atoi(argv[1]);
-
-	struct timeval tv;
-	int fdmax;
-	message msg, reciv_msg;
-	struct sockaddr_in sa_from;
-
-	if(argc < 2){
+	if(argc < 3){
 		usage(argv[0]);
 		exit(EXIT_SUCCESS);
 	}
+	lip = argv[1];
+	port_listen = atoi(argv[2]);
+
+	int aver_brith = 0;
+	int aver_temp = 0;
+	int clients = 0;
+	int bias_time = 0;
+
+	struct timeval tv;
+	int fdmax;
+	message bc_msg, reciv_msg;
+	struct sockaddr_in sa_from;
 
 	srand(time(NULL));
 	myid = (rand() % 100) + 1;
@@ -85,20 +87,18 @@ int main(int argc, char **argv){
 	fdmax = 0;
 	FD_SET(sock, &fds_all);
 	fdmax = max(fdmax, sock);
-	FD_SET(sock_bc, &fds_all);
-	fdmax = max(fdmax, sock_bc);
 
-	msg.id_req = 0;
-	msg.id_res = 0;
-	msg.id = myid;
-	msg.type = IMREADY;
-	msg.ds.temp = 100;
-	msg.ds.brithness = 50;
+	bc_msg.id_req = 0;
+	bc_msg.id_res = 0;
+	bc_msg.id = myid;
+	bc_msg.type = IMREADY;
+	bc_msg.ds.temp = 0;
+	bc_msg.ds.brithness = 0;
 
-	send_broadcast(sock_bc, &msg, sizeof(msg));
+	send_broadcast(&bc_msg, sizeof(bc_msg));
 
 	while(1){
-		tv.tv_sec = TIME_UNIT_WAITE;
+		tv.tv_sec = bias_time + TIME_UNIT_WAITE;
 		tv.tv_usec = 0;
 		fds_r = fds_all;
 		int sel = select(fdmax + 1, &fds_r, NULL, NULL, &tv);
@@ -108,11 +108,17 @@ int main(int argc, char **argv){
 			break;
 		}else if(sel == 0){ // time is gone
 			printf("unit %d: time is gone!\n", myid);
-			msg.id_req++;
-			msg.id_res = 0;
-			msg.id = myid;
-			msg.type = TIMEOUT;
-			send_broadcast(sock_bc, &msg, sizeof(msg));
+			bc_msg.id_req++;
+			bc_msg.id_res = 0;
+			bc_msg.id = myid;
+			bc_msg.type = TIMEOUT;
+			if(clients){
+				bc_msg.ds.brithness = aver_brith / clients;
+				bc_msg.ds.temp = aver_temp / clients;
+			}
+			send_broadcast(&bc_msg, sizeof(bc_msg));
+			aver_brith = aver_temp = clients = 0;
+			bias_time = 0;
 			continue;
 		}
 		// Пришли данные
@@ -125,8 +131,29 @@ int main(int argc, char **argv){
 				   if(read_bs != sizeof(reciv_msg)) {
 					   printf("recive bytes != size struct!");
 				   }
-					//printf("unit %d: recive id=%d req=%d res=%d\n", myid, reciv_msg.id, reciv_msg.id_req, reciv_msg.id_res);
-					proc(&msg, &reciv_msg, &sa_from, len_addr_from);
+				   if(reciv_msg.id < myid){				// запрос данных или установка дисплея
+						proc(&bc_msg, &reciv_msg, &sa_from);
+						if(!bias_time)
+							bias_time++;
+				   }else if(reciv_msg.id == myid){		// Один и тот же id 
+					   if(reciv_msg.id_req == bc_msg.id_req) { 	// получили свой же broadcast
+						   continue;
+					   }else{
+						   if(myid){					//  не "мастер"
+							   printf("change id\n");
+							   printf("\tid=%d req=%d res=%d type=%d brith=%d temp=%d\n", reciv_msg.id, reciv_msg.id_req,reciv_msg.id_res, reciv_msg.type, reciv_msg.ds.brithness, reciv_msg.ds.temp);
+							   myid++;
+						   }
+					   }
+					   // END CHANGE ID
+					}else if(reciv_msg.id > myid){
+						if(reciv_msg.type == MYDATA){
+							aver_brith += reciv_msg.ds.brithness;
+							aver_temp += reciv_msg.ds.temp;
+							clients++;
+							printf("%d считаем дату brith=%d temp=%d cliemts=%d\n", myid, aver_brith, aver_temp, clients);
+						}
+					}
 				}else{
 					printf("unit %d: error recive broadcast read_bs=%d\n", myid, read_bs);
 				}

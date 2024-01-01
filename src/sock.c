@@ -46,10 +46,12 @@ int Socket(){
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_port = htons(port_listen);
+	addr.sin_addr.s_addr = inet_addr(lip);
 	addr.sin_family = AF_INET;
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){
 		close(sock);
+		close(sock_bc);
 		perror("bind failure");
 		exit(EXIT_FAILURE);
 	}
@@ -57,7 +59,7 @@ int Socket(){
     return 0;
 }
 
-int send_broadcast(int socket, message *msg, size_t len){
+int send_broadcast(message *msg, size_t len){
 	int send_bytes;
 	struct sockaddr_in addr;
 	socklen_t lenaddr;
@@ -67,18 +69,18 @@ int send_broadcast(int socket, message *msg, size_t len){
 	addr.sin_addr.s_addr = inet_addr(BROADCAST);
 	lenaddr = sizeof(addr);
 
-	if((send_bytes = sendto(socket, msg, len, 0, (struct sockaddr*)&addr, lenaddr)) == -1)
+	if((send_bytes = sendto(sock_bc, msg, len, 0, (struct sockaddr*)&addr, lenaddr)) == -1)
 	{
 		perror("sendto:");
 		return 0;
 	}
-	printf("unit %d send broadcast\n", msg->id);
+	printf("%d send broadcast\n", msg->id);
 
 	return 1;
 
 }
 
-int send_msg(int idreq, message *msg, struct sockaddr_in *sa){
+int send_msg(message *msg, struct sockaddr_in *sa){
 	int bytes;
    	int len_msg = sizeof(struct _message);;
 	struct sockaddr_in addr;
@@ -86,8 +88,12 @@ int send_msg(int idreq, message *msg, struct sockaddr_in *sa){
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port_listen);
+	//addr.sin_addr.s_addr = inet_addr("192.168.0.1");
 	addr.sin_addr.s_addr = sa->sin_addr.s_addr;
 	lenaddr = sizeof(addr);
+	char buf[17];
+	inet_ntop(AF_INET, &addr.sin_addr, buf, 17);
+	printf("SEND MSG TO %s\n", buf);
 
 	if((bytes = sendto(sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1){
 		perror("Failure send udp mesg");
