@@ -1,7 +1,7 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
-#define BROADCAST "192.168.0.255"
+#define BROADCAST "255.255.255.255"
 //#define BROADCAST "127.255.255.255"
 #define QUEUE_LISTEN 10
 

@@ -16,6 +16,13 @@ extern int sock_bc;
 extern int port_listen;
 extern char* lip;
 
+void print_ip(struct sockaddr_in *addr){
+	char buf[INET_ADDRSTRLEN];
+	int port = ntohs(addr->sin_port);
+	inet_ntop(addr->sin_family, &(addr->sin_addr), buf, INET_ADDRSTRLEN);
+	printf("%s:%d\n", buf, port);
+}
+
 int Socket(){
 	int yes = 1;
 
@@ -56,6 +63,8 @@ int Socket(){
 		exit(EXIT_FAILURE);
 	}
 
+	printf("listen on addr: ");
+	print_ip(&addr);
     return 0;
 }
 
@@ -74,7 +83,8 @@ int send_broadcast(message *msg, size_t len){
 		perror("sendto:");
 		return 0;
 	}
-	printf("%d send broadcast\n", msg->id);
+	printf("%d send broadcast on ", msg->id);
+	print_ip(&addr);
 
 	return 1;
 
@@ -91,9 +101,8 @@ int send_msg(message *msg, struct sockaddr_in *sa){
 	//addr.sin_addr.s_addr = inet_addr("192.168.0.1");
 	addr.sin_addr.s_addr = sa->sin_addr.s_addr;
 	lenaddr = sizeof(addr);
-	char buf[17];
-	inet_ntop(AF_INET, &addr.sin_addr, buf, 17);
-	printf("SEND MSG TO %s\n", buf);
+	printf("SEND MSG TO ");
+	print_ip(&addr);
 
 	if((bytes = sendto(sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1){
 		perror("Failure send udp mesg");
