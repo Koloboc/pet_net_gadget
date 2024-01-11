@@ -12,10 +12,11 @@
 #include "sock.h"
 
 extern int sock;
-extern int sock_bc;
+extern int bc_sock;
 extern int port_listen;
 extern char* lip;
 
+// Печатает ip адрес в читаемом виде
 void print_ip(struct sockaddr_in *addr){
 	char buf[INET_ADDRSTRLEN];
 	int port = ntohs(addr->sin_port);
@@ -23,51 +24,54 @@ void print_ip(struct sockaddr_in *addr){
 	printf("%s:%d\n", buf, port);
 }
 
+/* Создаем два сокета */
+/* один для broadcast сообщений */
+/* второй для отправки сообщений в ответ */
 int Socket(){
+
+	struct sockaddr_in addr;
 	int yes = 1;
 
 	// BROADCAST SOCKET
-	sock_bc = socket(AF_INET, SOCK_DGRAM, getprotobyname("udp")->p_proto);
-	if(sock_bc == -1) {
+	bc_sock = socket(AF_INET, SOCK_DGRAM, getprotobyname("udp")->p_proto);
+	if(bc_sock == -1) {
 		perror("broadcast socket: ");
 		return 1;
 	}
 
-    if (setsockopt(sock_bc, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+    if (setsockopt(bc_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         perror("SO_REUSEADDR: ");
 		return 1;
     }
 
-	if(setsockopt(sock_bc, SOL_SOCKET, SO_BROADCAST, &yes, sizeof (yes)) == -1) {
+	if(setsockopt(bc_sock, SOL_SOCKET, SO_BROADCAST, &yes, sizeof (yes)) == -1) {
 		perror("SO_BROADCAST");
 		return 1;
 	}
 
-	// BASIC SOCKET
-	sock = socket(AF_INET, SOCK_DGRAM, getprotobyname("udp")->p_proto);
-	if(sock == -1) {
-		perror("basic socket: ");
+	// REGULAR SOCKET
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+        perror("SO_REUSEADDR: ");
 		return 1;
-	}
-
-	struct sockaddr_in addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_port = htons(port_listen);
-	addr.sin_addr.s_addr = inet_addr(lip);
-	addr.sin_family = AF_INET;
+    }
+	
+	memset(&addr, 0, sizeof(addr)); // обнуляем
+	addr.sin_family = AF_INET;		// семейство
+	addr.sin_port = htons(port_listen);// Порт для привязки
+	addr.sin_addr.s_addr = INADDR_ANY; // привящаться ко всем алресам (интерфейсам)
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){
+		close(bc_sock);
 		close(sock);
-		close(sock_bc);
 		perror("bind failure");
 		exit(EXIT_FAILURE);
 	}
 
-	printf("listen on addr: ");
-	print_ip(&addr);
     return 0;
 }
 
+// Посылаем msg по broadcast адресу (указанному в define)
 int send_broadcast(message *msg, size_t len){
 	int send_bytes;
 	struct sockaddr_in addr;
@@ -75,21 +79,24 @@ int send_broadcast(message *msg, size_t len){
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port_listen);
-	addr.sin_addr.s_addr = inet_addr(BROADCAST);
-	lenaddr = sizeof(addr);
-
-	if((send_bytes = sendto(sock_bc, msg, len, 0, (struct sockaddr*)&addr, lenaddr)) == -1)
-	{
-		perror("sendto:");
+	if(inet_pton(AF_INET, BROADCAST, &(addr.sin_addr)) <= 0){
+		perror("inet_pton");
 		return 0;
 	}
-	printf("%d send broadcast on ", msg->id);
-	print_ip(&addr);
+	lenaddr = sizeof(addr);
+
+	if((send_bytes = sendto(bc_sock, msg, len, 0, (struct sockaddr*)&addr, lenaddr)) == -1)
+	{
+		perror("broadcast sendto");
+		return 0;
+	}
 
 	return 1;
 
 }
 
+// Посылаем ответный msg по адресу *sa на порт укащанный в port_listen
+// Возвращает количество посланыж байт 
 int send_msg(message *msg, struct sockaddr_in *sa){
 	int bytes;
    	int len_msg = sizeof(struct _message);;
@@ -98,11 +105,8 @@ int send_msg(message *msg, struct sockaddr_in *sa){
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port_listen);
-	//addr.sin_addr.s_addr = inet_addr("192.168.0.1");
-	addr.sin_addr.s_addr = sa->sin_addr.s_addr;
+	addr.sin_addr = sa->sin_addr; // Копируем адрес
 	lenaddr = sizeof(addr);
-	printf("SEND MSG TO ");
-	print_ip(&addr);
 
 	if((bytes = sendto(sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1){
 		perror("Failure send udp mesg");

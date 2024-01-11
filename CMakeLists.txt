@@ -19,5 +19,6 @@ target_include_directories(${PROJECT_TARGET} PRIVATE ${INCLUDES_DIR})
 #target_compile_options(${PROJECT_TARGET} PRIVATE -g -Wall)
 target_compile_options(${PROJECT_TARGET} PRIVATE -g -Wall -DDEBUG)
 
+target_link_libraries(${PROJECT_TARGET} -lm)
 
 
