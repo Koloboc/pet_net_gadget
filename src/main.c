@@ -30,7 +30,7 @@ void die(){
 }
 
 void usage(const char *prog){
-	printf("Usage: %s <listen ip address> <listen port> [id]\n", prog);
+	printf("Usage: %s <listen ip address> [listen port] [id]\n", prog);
 	return;
 }
 void change_id(){
@@ -57,13 +57,23 @@ void setdisplay(message *msg, message *mydata){
 
 int main(int argc, char **argv){
 
-	if(argc < 4){
+	srand(time(NULL));
+
+	if(argc < 2){
 		usage(argv[0]);
 		exit(EXIT_SUCCESS);
+	}else if(argc < 3){
+		port_listen = LISTENPORT;
+		myid = (rand() % 100) + 1;
+	}else if(argc < 4){
+		port_listen = atoi(argv[2]);
+		myid = (rand() % 100) + 1;
+	}else{
+		port_listen = atoi(argv[2]);
+		myid = atoi(argv[3]);
 	}
+
 	lip = argv[1];
-	port_listen = atoi(argv[2]);
-	myid = atoi(argv[3]);
 
 	int aver_brith = 0; // среднее значение яркости (датчик)
 	int aver_temp = 0;  // среднее значение температуры (датчик)
@@ -74,9 +84,6 @@ int main(int argc, char **argv){
 	int fdmax;
 	message msg, reciv_msg; 
 	struct sockaddr_in sa_from; // алрес пришедших данных
-
-	srand(time(NULL));
-	/* myid = (rand() % 100) + 1; */
 
 	fd_set fds_r, fds_all;
 	FD_ZERO(&fds_r);
@@ -132,7 +139,7 @@ int main(int argc, char **argv){
 							send_msg(&msg, &sa_from);
 							setdisplay(&reciv_msg, &msg);
 							if(bias_time <= 0)
-								bias_time++;
+								bias_time++;			// Мы не master дадим возможность мастеру посылать запросы
 					}else if(reciv_msg.id == myid){		// Один и тот же id и ip-address
 						char buf[INET_ADDRSTRLEN];
 						inet_ntop(sa_from.sin_family, &(sa_from.sin_addr), buf, INET_ADDRSTRLEN);
@@ -142,7 +149,7 @@ int main(int argc, char **argv){
 						}else{
 							change_id();
 						}
-					}else if(reciv_msg.id > myid){
+					}else if(reciv_msg.id > myid){		// Возможно мы мастер, подсчитаем сумму пришедших данных
 						aver_brith += reciv_msg.brithness;
 						aver_temp += reciv_msg.temp;
 						clients++;

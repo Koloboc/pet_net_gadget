@@ -3,6 +3,7 @@
 
 #define BROADCAST "255.255.255.255"
 #define QUEUE_LISTEN 10
+#define LISTENPORT 1111
 
 #define TIME_UNIT_WAITE 6
 
