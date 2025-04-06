@@ -32,7 +32,7 @@ void die(){
 }
 
 void usage(const char *prog){
-	printf("Usage: %s <listen ip address> [listen port] [id]\n", prog);
+	printf("Usage: %s -a [listen ip address] -p [listen port] -b [broadcast address] -i [id]\n", prog);
 	return;
 }
 
@@ -44,15 +44,16 @@ void getdata(message *msg){
 	return;
 }
 
-void setdisplay(message *msg, message *mydata){
-	printf("**************************\n");
-	printf("*ID\tTEMP\t\tBRITHNESS*\n");
-	if(mydata->brithness != msg->brithness && mydata->temp == msg->temp){
-		printf("*%d:\tAVERRAGE\t\t *\n", myid);
+void setdisplay(message *rec_msg, message *my_data){
+	printf("************************************\n");
+	printf("ID\tTEMP\t\tBRITHNESS*\n");
+	printf("____________________________________\n");
+	if(my_data->brithness != rec_msg->brithness && my_data->temp == rec_msg->temp){
+		printf("%d:\tAVERRAGE\t\t \n", myid);
 	}
-		printf("*%d:\t%.2f\t\t%.2f *\n", mydata->id, mydata->temp, mydata->brithness);
-		printf("*%d:\t%.2f\t\t%.2f *\n", msg->id, msg->temp, msg->brithness);
-		printf("**************************\n");
+		printf("%d:\t%.2f\t\t%.2f \n", my_data->id, my_data->temp, my_data->brithness);
+		printf("%d:\t%.2f\t\t%.2f \n", rec_msg->id, rec_msg->temp, rec_msg->brithness);
+		printf("************************************\n");
 	return;
 }
 
@@ -92,9 +93,9 @@ int main(int argc, char **argv){
 	int avg_te = 0;  // среднее значение температуры (датчик)
 	int clients = 0;	// количество пришедших показаний (для расчета среднего)
 	int bias_time = 0;  // смещение времени (для ументшения колизий) лиьо +1 либо -1
+	int fdmax = 0;
 
 	struct timeval tv;	// время ожиданий в сек
-	int fdmax;
 	message msg, reciv_msg; 
 	struct sockaddr_in sa_from; // алрес пришедших данных
 
@@ -106,7 +107,6 @@ int main(int argc, char **argv){
 	if(Socket())
 		die();
 
-	fdmax = 0;
 	FD_SET(sock, &fds_all);
 	fdmax = max(fdmax, sock);
 	FD_SET(bc_sock, &fds_all);
@@ -116,12 +116,13 @@ int main(int argc, char **argv){
 	getdata(&msg);
 
 	// Посылаем первое сообщение всем
-	send_broadcast(&msg, sizeof(msg));
+	send_broadcast(&msg);
 
 	while(1){
 		tv.tv_sec = bias_time + TIME_UNIT_WAITE; // секунд ожидания
 		tv.tv_usec = 0;
 		fds_r = fds_all;
+
 		int sel = select(fdmax + 1, &fds_r, NULL, NULL, &tv);
 		if(sel == -1) {
 			perror("unit select: ");
@@ -140,7 +141,7 @@ int main(int argc, char **argv){
 			printf("============================\n");
 			printf("=======time is gone=========\n");
 			setdisplay(&avg, &msg);
-			send_broadcast(&avg, sizeof(avg));
+			send_broadcast(&avg);
 			avg_br = avg_te = clients = 0;
 			bias_time = 0;
 			continue;
@@ -148,7 +149,7 @@ int main(int argc, char **argv){
 		// Пришли данные
 		memset(&reciv_msg, 0, sizeof(reciv_msg));
 		for(int i = 0; i <= fdmax; i++){
-			if (FD_ISSET(i, &fds_r)){// && (i == sock)){
+			if (FD_ISSET(i, &fds_r) && (i == sock)){
 				socklen_t len_addr_from = sizeof(struct sockaddr_in);
 				int read_bs = recvfrom(i, &reciv_msg, sizeof(reciv_msg), 0, (struct sockaddr*)&sa_from, &len_addr_from);
 
@@ -160,12 +161,12 @@ int main(int argc, char **argv){
 						setdisplay(&reciv_msg, &msg);
 						if(bias_time <= 0)
 							bias_time++;			// Мы не master дадим возможность мастеру посылать запросы
+						
 					}else if(reciv_msg.id == myid){		// Один и тот же id и ip-address
 						char buf[INET_ADDRSTRLEN];
 						inet_ntop(sa_from.sin_family, &(sa_from.sin_addr), buf, INET_ADDRSTRLEN);
 
-						if(strcmp(bip, buf) == 0){ // мой ip addr
-							printf("=======MY DATA=========\n");
+						if(strcmp(lip, buf) == 0){ // мой ip addr
 							continue;
 						}else{
 							myid++;

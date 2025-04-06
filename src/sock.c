@@ -73,7 +73,7 @@ int Socket(){
 }
 
 // Посылаем msg по broadcast адресу (указанному в define)
-int send_broadcast(message *msg, size_t len){
+int send_broadcast(message *msg){
 	int send_bytes;
 	struct sockaddr_in addr;
 	socklen_t lenaddr;
@@ -86,7 +86,7 @@ int send_broadcast(message *msg, size_t len){
 	}
 	lenaddr = sizeof(addr);
 
-	if((send_bytes = sendto(bc_sock, msg, len, MSG_DONTROUTE, (struct sockaddr*)&addr, lenaddr)) == -1)
+	if((send_bytes = sendto(bc_sock, msg, sizeof(message), 0, (struct sockaddr*)&addr, lenaddr)) == -1)
 	{
 		perror("broadcast sendto");
 		return 0;
@@ -100,18 +100,12 @@ int send_broadcast(message *msg, size_t len){
 // Возвращает количество посланыж байт 
 int send_msg(message *msg, struct sockaddr_in *sa){
 	int bytes;
-   	int len_msg = sizeof(struct _message);;
-	struct sockaddr_in addr;
-	socklen_t lenaddr;
+   	int len_msg = sizeof(message);;
+	struct sockaddr_in addr = *sa;
+	socklen_t lenaddr = sizeof(addr);
 
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port_listen);
-	addr.sin_addr = sa->sin_addr; // Копируем адрес
-	lenaddr = sizeof(addr);
-
-	if((bytes = sendto(sock, msg, len_msg, MSG_DONTROUTE, (struct sockaddr*)&addr, lenaddr))== -1){
+	if((bytes = sendto(sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1)
 		perror("Failure send udp mesg");
-	}
 	return bytes;
 }
 

@@ -3,7 +3,7 @@
 
 
 int Socket();
-int send_broadcast(message *msg, size_t len);
+int send_broadcast(message *msg);
 int send_msg(message *msg, struct sockaddr_in *sa);
 void print_ip(struct sockaddr_in *addr);
 
