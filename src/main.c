@@ -12,14 +12,16 @@
 #include <netdb.h>
 #include <errno.h>
 #include <math.h>
+#include <unistd.h>
 #include "defines.h"
 #include "sock.h"
 
-int myid; 		// Ижентификатор гаджета (задается случайно)
-char *lip;		// Listen IP адрес
-int port_listen;// порт прослушивания
-int sock;		// основной сокет
-int bc_sock;		// основной сокет
+int myid = 0; 						// Ижентификатор гаджета (задается случайно)
+char *lip = ADDRESS;			// Listen IP адрес
+char *bip = BROADCAST;
+int port_listen = LISTENPORT;	// порт прослушивания
+int sock;						// сокет
+int bc_sock;					// широковещательный сокет
 
 void die(){
 	close(sock);
@@ -33,9 +35,6 @@ void usage(const char *prog){
 	printf("Usage: %s <listen ip address> [listen port] [id]\n", prog);
 	return;
 }
-void change_id(){
-	myid++;
-}
 
 // Получаем данные с датчиков и копируем в msg
 void getdata(message *msg){
@@ -46,38 +45,52 @@ void getdata(message *msg){
 }
 
 void setdisplay(message *msg, message *mydata){
-	printf("%d: brith=%d temp=%d\n", myid, mydata->brithness, mydata->temp);
 	printf("**************************\n");
-	printf("*  %d: DISPLAY\t\t *\n", myid);
-	printf("*      brithness=%d\t *\n", msg->brithness);
-	printf("*      temp=%d\t\t *\n", msg->temp);
-	printf("**************************\n");
+	printf("*ID\tTEMP\t\tBRITHNESS*\n");
+	if(mydata->brithness != msg->brithness && mydata->temp == msg->temp){
+		printf("*%d:\tAVERRAGE\t\t *\n", myid);
+	}
+		printf("*%d:\t%.2f\t\t%.2f *\n", mydata->id, mydata->temp, mydata->brithness);
+		printf("*%d:\t%.2f\t\t%.2f *\n", msg->id, msg->temp, msg->brithness);
+		printf("**************************\n");
 	return;
 }
+
+static char const short_options[] = "a:p:i:b:";
 
 int main(int argc, char **argv){
 
 	srand(time(NULL));
+	int argRes = 0;
 
-	if(argc < 2){
-		usage(argv[0]);
-		exit(EXIT_SUCCESS);
-	}else if(argc < 3){
-		port_listen = LISTENPORT;
-		myid = (rand() % 100) + 1;
-	}else if(argc < 4){
-		port_listen = atoi(argv[2]);
-		myid = (rand() % 100) + 1;
-	}else{
-		port_listen = atoi(argv[2]);
-		myid = atoi(argv[3]);
+	while((argRes = getopt(argc, argv, short_options)) != -1)
+	{
+		switch(argRes)
+		{
+			case 'a':
+				lip = optarg;
+				break;
+			case 'p':
+				port_listen = atoi(optarg);
+				break;
+			case 'i':
+				myid = atoi(optarg);
+				break;
+			case 'b':
+				bip = optarg;
+				break;
+			case '?':
+			default:
+				usage(argv[0]);
+				exit(EXIT_SUCCESS);
+		}
 	}
+	if(!myid)
+		myid = rand() % 100 + 1;
 
-	lip = argv[1];
-
-	int aver_brith = 0; // среднее значение яркости (датчик)
-	int aver_temp = 0;  // среднее значение температуры (датчик)
-	int clients = 0;	// количество пришедших покащаний (для расчета среднего)
+	int avg_br = 0; // среднее значение яркости (датчик)
+	int avg_te = 0;  // среднее значение температуры (датчик)
+	int clients = 0;	// количество пришедших показаний (для расчета среднего)
 	int bias_time = 0;  // смещение времени (для ументшения колизий) лиьо +1 либо -1
 
 	struct timeval tv;	// время ожиданий в сек
@@ -96,6 +109,8 @@ int main(int argc, char **argv){
 	fdmax = 0;
 	FD_SET(sock, &fds_all);
 	fdmax = max(fdmax, sock);
+	FD_SET(bc_sock, &fds_all);
+	fdmax = max(fdmax, bc_sock);
 
 	// получаем данные с датчиков
 	getdata(&msg);
@@ -104,7 +119,7 @@ int main(int argc, char **argv){
 	send_broadcast(&msg, sizeof(msg));
 
 	while(1){
-		tv.tv_sec = bias_time + TIME_UNIT_WAITE; // секунд одилания
+		tv.tv_sec = bias_time + TIME_UNIT_WAITE; // секунд ожидания
 		tv.tv_usec = 0;
 		fds_r = fds_all;
 		int sel = select(fdmax + 1, &fds_r, NULL, NULL, &tv);
@@ -113,48 +128,54 @@ int main(int argc, char **argv){
 			break;
 		}else if(sel == 0){ // time is gone
 			getdata(&msg);
-			message mydata = msg;
+			message avg;
 			if(clients){
 				// считаем средние значения вместе со своими данными
 				clients++;
-				msg.brithness = roundf(1.0 * (aver_brith + msg.brithness) / clients);
-				msg.temp = roundf(1.0 * (aver_temp + msg.temp) / clients);
+				avg.brithness = roundf(1.0 * (avg_br + msg.brithness) / clients);
+				avg.temp = roundf(1.0 * (avg_te + msg.temp) / clients);
+			}else{
+				avg = msg;
 			}
-			send_broadcast(&msg, sizeof(msg));
-			setdisplay(&msg, &mydata);
-			aver_brith = aver_temp = clients = 0;
+			printf("============================\n");
+			printf("=======time is gone=========\n");
+			setdisplay(&avg, &msg);
+			send_broadcast(&avg, sizeof(avg));
+			avg_br = avg_te = clients = 0;
 			bias_time = 0;
 			continue;
 		}
 		// Пришли данные
 		memset(&reciv_msg, 0, sizeof(reciv_msg));
 		for(int i = 0; i <= fdmax; i++){
-			if (FD_ISSET(i, &fds_r) && (i == sock)){
+			if (FD_ISSET(i, &fds_r)){// && (i == sock)){
 				socklen_t len_addr_from = sizeof(struct sockaddr_in);
 				int read_bs = recvfrom(i, &reciv_msg, sizeof(reciv_msg), 0, (struct sockaddr*)&sa_from, &len_addr_from);
 
 				if(read_bs > 0){
 					if(reciv_msg.id < myid){				// запрос данных или установка дисплея
-							getdata(&msg);
-							send_msg(&msg, &sa_from);
-							setdisplay(&reciv_msg, &msg);
-							if(bias_time <= 0)
-								bias_time++;			// Мы не master дадим возможность мастеру посылать запросы
+						getdata(&msg);
+						send_msg(&msg, &sa_from);
+						/* send_broadcast(&msg, sizeof(msg)); */
+						setdisplay(&reciv_msg, &msg);
+						if(bias_time <= 0)
+							bias_time++;			// Мы не master дадим возможность мастеру посылать запросы
 					}else if(reciv_msg.id == myid){		// Один и тот же id и ip-address
 						char buf[INET_ADDRSTRLEN];
 						inet_ntop(sa_from.sin_family, &(sa_from.sin_addr), buf, INET_ADDRSTRLEN);
 
-						if(strcmp(lip, buf) == 0){
+						if(strcmp(bip, buf) == 0){ // мой ip addr
+							printf("=======MY DATA=========\n");
 							continue;
 						}else{
-							change_id();
+							myid++;
 						}
 					}else if(reciv_msg.id > myid){		// Возможно мы мастер, подсчитаем сумму пришедших данных
-						aver_brith += reciv_msg.brithness;
-						aver_temp += reciv_msg.temp;
+						avg_br += reciv_msg.brithness;
+						avg_te += reciv_msg.temp;
 						clients++;
-						if(bias_time >= 0)
-							bias_time--;
+						if(bias_time > 0)
+							bias_time = 0;
 					}
 				}else{
 					printf("unit %d: error recive broadcast read_bs=%d\n", myid, read_bs);

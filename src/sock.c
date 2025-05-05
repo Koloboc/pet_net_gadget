@@ -15,6 +15,7 @@ extern int sock;
 extern int bc_sock;
 extern int port_listen;
 extern char* lip;
+extern char* bip;
 
 // Печатает ip адрес в читаемом виде
 void print_ip(struct sockaddr_in *addr){
@@ -36,30 +37,30 @@ int Socket(){
 	bc_sock = socket(AF_INET, SOCK_DGRAM, getprotobyname("udp")->p_proto);
 	if(bc_sock == -1) {
 		perror("broadcast socket: ");
-		return 1;
+		exit(EXIT_FAILURE);
 	}
 
     if (setsockopt(bc_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         perror("SO_REUSEADDR: ");
-		return 1;
+		exit(EXIT_FAILURE);
     }
 
 	if(setsockopt(bc_sock, SOL_SOCKET, SO_BROADCAST, &yes, sizeof (yes)) == -1) {
 		perror("SO_BROADCAST");
-		return 1;
+		exit(EXIT_FAILURE);
 	}
 
 	// REGULAR SOCKET
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	sock = socket(AF_INET, SOCK_DGRAM, getprotobyname("udp")->p_proto);
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         perror("SO_REUSEADDR: ");
-		return 1;
+		exit(EXIT_FAILURE);
     }
-	
 	memset(&addr, 0, sizeof(addr)); // обнуляем
 	addr.sin_family = AF_INET;		// семейство
 	addr.sin_port = htons(port_listen);// Порт для привязки
-	addr.sin_addr.s_addr = INADDR_ANY; // привящаться ко всем алресам (интерфейсам)
+	addr.sin_addr.s_addr = INADDR_ANY;
+
 
 	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){
 		close(bc_sock);
@@ -79,13 +80,13 @@ int send_broadcast(message *msg, size_t len){
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port_listen);
-	if(inet_pton(AF_INET, BROADCAST, &(addr.sin_addr)) <= 0){
+	if(inet_pton(AF_INET, bip, &(addr.sin_addr)) <= 0){
 		perror("inet_pton");
 		return 0;
 	}
 	lenaddr = sizeof(addr);
 
-	if((send_bytes = sendto(bc_sock, msg, len, 0, (struct sockaddr*)&addr, lenaddr)) == -1)
+	if((send_bytes = sendto(bc_sock, msg, len, MSG_DONTROUTE, (struct sockaddr*)&addr, lenaddr)) == -1)
 	{
 		perror("broadcast sendto");
 		return 0;
@@ -108,7 +109,7 @@ int send_msg(message *msg, struct sockaddr_in *sa){
 	addr.sin_addr = sa->sin_addr; // Копируем адрес
 	lenaddr = sizeof(addr);
 
-	if((bytes = sendto(sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1){
+	if((bytes = sendto(sock, msg, len_msg, MSG_DONTROUTE, (struct sockaddr*)&addr, lenaddr))== -1){
 		perror("Failure send udp mesg");
 	}
 	return bytes;

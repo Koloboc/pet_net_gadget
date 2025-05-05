@@ -1,20 +1,20 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
-#define BROADCAST "255.255.255.255"
+#define BROADCAST "127.255.255.255"
+#define ADDRESS "192.168.0.1"
 #define QUEUE_LISTEN 10
 #define LISTENPORT 1111
 
-#define TIME_UNIT_WAITE 6
+#define TIME_UNIT_WAITE 3
 
 #undef max
 #define max(x,y) ((x)>(y)?(x):(y))
 
-
 typedef struct _message{
 	int id;
-	int temp;
-	int brithness;
+	float temp;
+	float brithness;
 }message;
 
 
