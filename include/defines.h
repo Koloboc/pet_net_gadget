@@ -11,10 +11,16 @@
 #undef max
 #define max(x,y) ((x)>(y)?(x):(y))
 
+#ifdef DEBUG
+#	define LOG(fmt, args...) printf(fmt, ## args)
+#else
+#	define LOG(fmt, args...)
+#endif
+
 typedef struct _message{
 	int id;
 	float temp;
-	float brithness;
+	float br;
 }message;
 
 

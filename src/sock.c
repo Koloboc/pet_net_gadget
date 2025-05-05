@@ -86,11 +86,11 @@ int send_broadcast(message *msg){
 	}
 	lenaddr = sizeof(addr);
 
-	if((send_bytes = sendto(bc_sock, msg, sizeof(message), 0, (struct sockaddr*)&addr, lenaddr)) == -1)
-	{
+	if((send_bytes = sendto(bc_sock, msg, sizeof(message), 0, (struct sockaddr*)&addr, lenaddr)) == -1) {
 		perror("broadcast sendto");
 		return 0;
 	}
+	LOG("send broad\n");
 
 	return 1;
 
@@ -102,10 +102,13 @@ int send_msg(message *msg, struct sockaddr_in *sa){
 	int bytes;
    	int len_msg = sizeof(message);;
 	struct sockaddr_in addr = *sa;
+	addr.sin_port = htons(port_listen);
 	socklen_t lenaddr = sizeof(addr);
 
-	if((bytes = sendto(sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1)
+	if((bytes = sendto(bc_sock, msg, len_msg, 0, (struct sockaddr*)&addr, lenaddr))== -1)
 		perror("Failure send udp mesg");
+	LOG("send mess to: ");
+	LOG(&addr);
 	return bytes;
 }
 
